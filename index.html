@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌸 HeyLog</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&family=Lato:wght@300;400;700&family=Dancing+Script:wght@400;600;700&family=Merriweather:ital,wght@0,300;0,400;1,300&family=Caveat:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --pink-50:#fff0f5;--pink-100:#ffd6e7;--pink-200:#ffadd0;--pink-400:#f472b6;--pink-600:#db2777;
+    --lav-50:#f5f0ff;--lav-100:#e9d5ff;--lav-200:#d8b4fe;--lav-400:#a78bfa;--lav-600:#7c3aed;
+    --text-dark:#3d1a2e;--text-mid:#7d4e6e;--text-light:#b08fa0;
+    --white:#ffffff;--cream:#fffbfe;
+  }
+  body{font-family:'Lato',sans-serif;background:linear-gradient(135deg,#fff0f8 0%,#f5f0ff 50%,#fff0f8 100%);min-height:100vh;color:var(--text-dark);overflow-x:hidden}
+  .petal{position:fixed;pointer-events:none;opacity:0.15;animation:floatPetal linear infinite;z-index:0}
+  @keyframes floatPetal{0%{transform:translateY(-30px) rotate(0deg);opacity:0}10%{opacity:0.18}90%{opacity:0.08}100%{transform:translateY(100vh) rotate(400deg);opacity:0}}
+
+  /* ===== AUTH SCREEN ===== */
+  #authScreen{position:fixed;inset:0;background:linear-gradient(160deg,#ffe4f0 0%,#ead5fb 50%,#ffd6f0 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;padding:20px}
+  .auth-flower{font-size:60px;animation:spinFlower 10s linear infinite;margin-bottom:8px}
+  @keyframes spinFlower{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  .auth-title{font-family:'Dancing Script',cursive;font-size:44px;color:var(--text-dark);margin-bottom:4px}
+  .auth-sub{font-size:13px;color:var(--text-mid);letter-spacing:1px;margin-bottom:24px}
+  .auth-card{background:rgba(255,255,255,0.85);backdrop-filter:blur(10px);border-radius:24px;padding:30px;width:min(92vw,380px);box-shadow:0 12px 40px rgba(219,39,119,0.15)}
+  .auth-tabs{display:flex;gap:8px;margin-bottom:20px;background:var(--pink-50);border-radius:14px;padding:4px}
+  .auth-tab{flex:1;padding:9px;border:none;background:none;border-radius:11px;cursor:pointer;font-size:13px;font-family:'Lato',sans-serif;color:var(--text-mid);transition:all 0.2s;font-weight:700}
+  .auth-tab.active{background:var(--white);color:var(--pink-600);box-shadow:0 2px 8px rgba(219,39,119,0.1)}
+  .auth-input{width:100%;padding:12px 16px;border-radius:14px;border:1.5px solid var(--pink-100);font-size:14px;margin-bottom:12px;outline:none;font-family:'Lato',sans-serif;background:var(--white)}
+  .auth-input:focus{border-color:var(--pink-400)}
+  .auth-btn{width:100%;padding:12px;border-radius:16px;border:none;background:var(--pink-400);color:white;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;font-family:'Lato',sans-serif}
+  .auth-btn:hover{background:var(--pink-600)}
+  .auth-btn:disabled{opacity:0.6;cursor:not-allowed}
+  .auth-msg{font-size:13px;text-align:center;margin-top:12px;min-height:18px;color:var(--text-mid)}
+  .auth-msg.error{color:#c0003a}
+  .auth-msg.success{color:#2e7d32}
+
+  /* ===== MAIN APP ===== */
+  #app{display:none;flex-direction:column;min-height:100vh;position:relative;z-index:1}
+  #app.visible{display:flex}
+  .topbar{background:rgba(255,255,255,0.88);backdrop-filter:blur(14px);border-bottom:1px solid var(--pink-100);padding:13px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .app-logo{font-family:'Dancing Script',cursive;font-size:30px;color:var(--pink-600)}
+  .topbar-actions{display:flex;gap:10px;align-items:center}
+  .icon-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--pink-100);background:rgba(255,255,255,0.8);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all 0.2s;color:var(--text-mid)}
+  .icon-btn:hover{background:var(--pink-50);border-color:var(--pink-200);transform:scale(1.05)}
+  .sync-badge{font-size:11px;color:var(--text-light);display:flex;align-items:center;gap:4px}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:#4caf50}
+  .sync-dot.syncing{background:#ffa726;animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+  .content{flex:1;padding:18px 20px 0;max-width:860px;margin:0 auto;width:100%}
+  .view{display:none}
+  .view.active{display:block}
+
+  .reminder-banner{background:linear-gradient(135deg,var(--pink-100),var(--lav-100));border-radius:16px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--pink-200)}
+  .reminder-banner p{font-size:13px;color:var(--text-dark)}
+  .reminder-close{background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-mid);flex-shrink:0}
+
+  .streak-strip{display:flex;gap:10px;margin-bottom:16px}
+  .streak-card{flex:1;background:rgba(255,255,255,0.78);border-radius:16px;padding:14px;text-align:center;border:1px solid var(--pink-100)}
+  .streak-num{font-family:'Playfair Display',serif;font-size:24px;color:var(--pink-600)}
+  .streak-label{font-size:11px;color:var(--text-light);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px}
+
+  .home-header{text-align:center;padding:16px 0 16px}
+  .home-greeting{font-family:'Dancing Script',cursive;font-size:38px;color:var(--text-dark)}
+  .home-date{font-size:12px;color:var(--text-light);margin-top:5px;letter-spacing:2px;text-transform:uppercase}
+  .mood-strip{background:rgba(255,255,255,0.72);border-radius:18px;padding:16px 18px;margin-bottom:18px;border:1px solid var(--pink-100)}
+  .mood-strip-title{font-size:11px;color:var(--text-light);letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:10px}
+  .mood-options{display:flex;gap:8px;flex-wrap:wrap}
+  .mood-btn{padding:7px 15px;border-radius:22px;border:1.5px solid var(--pink-100);background:var(--white);cursor:pointer;font-size:14px;transition:all 0.2s;color:var(--text-mid)}
+  .mood-btn:hover,.mood-btn.selected{background:var(--pink-100);border-color:var(--pink-400);color:var(--pink-600)}
+  .search-row{display:flex;gap:10px;margin-bottom:16px}
+  .search-input{flex:1;padding:10px 18px;border-radius:22px;border:1.5px solid var(--pink-100);background:rgba(255,255,255,0.85);font-size:14px;color:var(--text-dark);outline:none}
+  .search-input:focus{border-color:var(--pink-400)}
+  .search-input::placeholder{color:var(--text-light)}
+  .section-label{font-size:11px;letter-spacing:2.5px;color:var(--text-light);margin-bottom:12px;font-weight:700;text-transform:uppercase}
+  .journals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:16px;margin-bottom:24px}
+  .journal-card{border-radius:18px;overflow:hidden;cursor:pointer;transition:all 0.25s;box-shadow:0 3px 14px rgba(219,39,119,0.09)}
+  .journal-card:hover{transform:translateY(-5px);box-shadow:0 10px 28px rgba(219,39,119,0.18)}
+  .journal-cover{height:148px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .journal-cover-emoji{font-size:40px;position:relative;z-index:1}
+  .journal-cover-img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .journal-cover-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;z-index:2}
+  .journal-info{background:rgba(255,255,255,0.94);padding:11px 13px}
+  .journal-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--text-dark);font-weight:500}
+  .journal-meta{font-size:11px;color:var(--text-light);margin-top:2px}
+  .add-journal-card{border-radius:18px;border:2px dashed var(--pink-200);cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:200px;background:rgba(255,255,255,0.45);color:var(--text-light)}
+  .add-journal-card:hover{border-color:var(--pink-400);background:var(--pink-50);color:var(--pink-600)}
+  .add-journal-card .add-icon{font-size:36px}
+  .entry-card{background:rgba(255,255,255,0.88);border-radius:16px;padding:15px 18px;margin-bottom:11px;border:1px solid var(--pink-100);cursor:pointer;transition:all 0.2s}
+  .entry-card:hover{border-color:var(--pink-200);background:var(--white);transform:translateX(3px)}
+  .entry-date-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .entry-date{font-size:11px;color:var(--text-light)}
+  .entry-mood-tag{font-size:11px;padding:3px 10px;border-radius:12px;background:var(--pink-100);color:var(--pink-600)}
+  .entry-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--text-dark);margin-bottom:5px}
+  .entry-preview{font-size:13px;color:var(--text-mid);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .entry-photo-thumb{width:100%;max-height:120px;object-fit:cover;border-radius:10px;margin-top:8px}
+  .entry-journal-tag{font-size:11px;color:var(--lav-600);margin-top:7px}
+  .empty-state{text-align:center;padding:50px 20px;color:var(--text-light)}
+  .empty-state .big-emoji{font-size:50px;margin-bottom:14px}
+
+  .cal-wrap{background:rgba(255,255,255,0.8);border-radius:20px;padding:20px;border:1px solid var(--pink-100);margin-bottom:18px}
+  .cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .cal-nav{background:none;border:none;cursor:pointer;font-size:24px;color:var(--pink-600);padding:4px 12px;border-radius:12px}
+  .cal-nav:hover{background:var(--pink-100)}
+  .cal-month-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--text-dark)}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .cal-day-label{font-size:11px;color:var(--text-light);text-align:center;padding:5px 0;font-weight:700}
+  .cal-day{min-height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--text-mid);transition:all 0.15s;position:relative}
+  .cal-day:hover{background:var(--pink-50)}
+  .cal-day.today{background:var(--pink-100);color:var(--pink-600);font-weight:700}
+  .cal-day.has-entry::after{content:'🌸';position:absolute;bottom:2px;font-size:8px}
+  .cal-day.selected{background:var(--pink-400) !important;color:white !important}
+  .cal-day.other-month{opacity:0.3}
+
+  .editor-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .back-btn{background:none;border:none;cursor:pointer;font-size:22px;color:var(--text-mid);padding:6px 10px;border-radius:10px}
+  .back-btn:hover{background:var(--pink-100);color:var(--pink-600)}
+  .editor-wrap{border-radius:22px;overflow:hidden;box-shadow:0 6px 30px rgba(219,39,119,0.12);background:var(--white)}
+  .editor-meta{padding:10px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--pink-100);background:rgba(255,255,255,0.97)}
+  .meta-select,.meta-date-input{padding:5px 12px;border-radius:12px;border:1.5px solid var(--pink-100);font-size:12px;background:rgba(255,255,255,0.9);color:var(--text-mid);cursor:pointer;outline:none;font-family:'Lato',sans-serif}
+  .save-btn{margin-left:auto;padding:9px 26px;border-radius:22px;background:var(--pink-400);color:white;border:none;cursor:pointer;font-size:14px;font-weight:700}
+  .save-btn:hover{background:var(--pink-600)}
+  .entry-title-input{width:100%;border:none;background:transparent;font-family:'Playfair Display',serif;font-size:28px;color:var(--text-dark);outline:none;padding:22px 24px 0}
+  .entry-title-input::placeholder{color:var(--text-light)}
+  .editor-toolbar{padding:10px 16px;display:flex;flex-wrap:wrap;gap:7px;align-items:center;border-bottom:1px solid var(--pink-50);background:rgba(255,250,254,0.95)}
+  .tb-group{display:flex;gap:4px;align-items:center;padding-right:10px;border-right:1px solid var(--pink-100)}
+  .tb-group:last-child{border-right:none}
+  .tb-btn{padding:5px 11px;border-radius:9px;border:1px solid transparent;cursor:pointer;font-size:13px;background:none;color:var(--text-mid)}
+  .tb-btn:hover{background:var(--pink-100);color:var(--pink-600)}
+  .tb-select{padding:5px 9px;border-radius:9px;border:1px solid var(--pink-100);font-size:12px;background:rgba(255,255,255,0.9);color:var(--text-mid);cursor:pointer;outline:none}
+  .editor-page{padding:24px;min-height:380px;outline:none;font-size:15px;line-height:1.85;color:var(--text-dark)}
+  .editor-page:empty::before{content:attr(data-placeholder);color:var(--text-light)}
+  .bg-white{background:white}.bg-pink{background:#fff5f8}.bg-lav{background:#f8f5ff}.bg-cream{background:#fffef5}.bg-mint{background:#f5fffb}
+  .bg-ruled{background-image:repeating-linear-gradient(transparent,transparent 29px,#f0d8e8 30px);background-color:white}
+  .bg-dotted{background-image:radial-gradient(circle,#e0c0d0 1.2px,transparent 1.2px);background-size:26px 26px;background-color:white}
+  .photo-attach-row{padding:12px 24px;border-top:1px solid var(--pink-50);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .photo-thumb-wrap{position:relative;width:60px;height:60px}
+  .photo-thumb-wrap img{width:100%;height:100%;object-fit:cover;border-radius:10px}
+  .photo-remove{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#c0003a;color:white;border:none;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(61,26,46,0.38);z-index:500;display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+  .modal-bg.open{display:flex}
+  .modal{background:var(--cream);border-radius:26px;padding:30px;width:min(95vw,440px);max-height:92vh;overflow-y:auto}
+  .modal h2{font-family:'Playfair Display',serif;font-size:24px;color:var(--text-dark);margin-bottom:22px}
+  .form-group{margin-bottom:15px}
+  .form-label{font-size:11px;color:var(--text-mid);letter-spacing:1px;display:block;margin-bottom:7px;font-weight:700;text-transform:uppercase}
+  .form-input{width:100%;padding:11px 15px;border-radius:14px;border:1.5px solid var(--pink-100);font-size:14px;color:var(--text-dark);background:var(--white);outline:none}
+  .form-input:focus{border-color:var(--pink-400)}
+  .cover-emojis{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .cover-emoji-opt{width:52px;height:52px;border-radius:12px;cursor:pointer;border:2.5px solid transparent;font-size:26px;display:flex;align-items:center;justify-content:center;background:var(--pink-50)}
+  .cover-emoji-opt:hover,.cover-emoji-opt.sel{border-color:var(--pink-400);transform:scale(1.1)}
+  .color-palette{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .color-swatch{width:32px;height:32px;border-radius:9px;cursor:pointer;border:2.5px solid transparent}
+  .color-swatch:hover,.color-swatch.sel{border-color:var(--text-dark);transform:scale(1.12)}
+  .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+  .btn-cancel{padding:9px 20px;border-radius:15px;border:1.5px solid var(--pink-200);background:var(--white);color:var(--text-mid);cursor:pointer;font-size:14px}
+  .btn-primary{padding:9px 24px;border-radius:15px;border:none;background:var(--pink-400);color:white;cursor:pointer;font-size:14px;font-weight:700}
+  .btn-primary:hover{background:var(--pink-600)}
+  #coverThumb{width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid var(--pink-100);display:none;vertical-align:middle;margin-left:8px}
+
+  #entryViewModal .modal{width:min(96vw,640px)}
+  .view-entry-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+  .view-entry-actions{display:flex;gap:8px;flex-shrink:0}
+  .view-entry-date{font-size:12px;color:var(--text-light);margin-bottom:5px}
+  .view-entry-title{font-family:'Playfair Display',serif;font-size:24px;color:var(--text-dark)}
+  .view-entry-tags{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .view-entry-body{font-size:15px;line-height:1.85;color:var(--text-dark);padding:18px;background:var(--pink-50);border-radius:16px;max-height:52vh;overflow-y:auto}
+  .view-entry-photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .view-entry-photos img{width:90px;height:90px;object-fit:cover;border-radius:12px;cursor:pointer}
+
+  .settings-card{background:rgba(255,255,255,0.82);border-radius:18px;padding:18px;margin-bottom:14px;border:1px solid var(--pink-100)}
+  .settings-card-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--text-dark);margin-bottom:14px}
+  .settings-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--pink-50)}
+  .settings-row:last-child{border-bottom:none}
+  .settings-label{font-size:14px;color:var(--text-mid)}
+  .settings-action-btn{padding:6px 16px;border-radius:11px;border:1.5px solid var(--pink-200);background:var(--white);color:var(--pink-600);cursor:pointer;font-size:13px}
+  .settings-action-btn:hover{background:var(--pink-100)}
+  .settings-action-btn.danger{color:#c0003a;border-color:#fcc}
+  .settings-action-btn.danger:hover{background:#fff0f0}
+
+  .nav-bar{background:rgba(255,255,255,0.94);border-top:1px solid var(--pink-100);padding:10px 0 16px;display:flex;justify-content:space-around;backdrop-filter:blur(12px);position:sticky;bottom:0;z-index:99}
+  .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:7px 20px;border-radius:16px;transition:all 0.2s;border:none;background:none;color:var(--text-light);font-size:11px}
+  .nav-item:hover,.nav-item.active{color:var(--pink-600)}
+  .nav-icon{font-size:22px;line-height:1}
+  @media(max-width:520px){.journals-grid{grid-template-columns:repeat(2,1fr)}.entry-title-input{font-size:22px;padding:16px 16px 0}.editor-page{padding:16px}}
+</style>
+</head>
+<body>
+
+<div id="petalsContainer" style="position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden"></div>
+
+<!-- ===== AUTH SCREEN ===== -->
+<div id="authScreen">
+  <span class="auth-flower">🌸</span>
+  <div class="auth-title">HeyLog</div>
+  <div class="auth-sub">your cozy corner, anywhere</div>
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Log In</button>
+      <button class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">Sign Up</button>
+    </div>
+    <input class="auth-input" type="email" id="authEmail" placeholder="Email address">
+    <input class="auth-input" type="password" id="authPassword" placeholder="Password">
+    <button class="auth-btn" id="authSubmitBtn" onclick="handleAuthSubmit()">Log In 🌸</button>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="app">
+  <div class="topbar">
+    <div class="app-logo">🌸 HeyLog</div>
+    <div class="topbar-actions">
+      <span class="sync-badge"><span class="sync-dot" id="syncDot"></span><span id="syncText">Synced</span></span>
+      <button class="icon-btn" onclick="openNewEntry()" title="New entry">✏️</button>
+      <button class="icon-btn" onclick="showView('settings')" title="Settings">⚙️</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- HOME -->
+    <div class="view active" id="view-home">
+      <div class="home-header">
+        <div class="home-greeting" id="homeGreeting"></div>
+        <div class="home-date" id="homeDate"></div>
+      </div>
+
+      <div class="reminder-banner" id="reminderBanner" style="display:none">
+        <p>🌸 Haven't written today yet — even a few lines count!</p>
+        <button class="reminder-close" onclick="dismissReminder()">✕</button>
+      </div>
+
+      <div class="streak-strip">
+        <div class="streak-card"><div class="streak-num" id="streakCurrent">0</div><div class="streak-label">Day Streak</div></div>
+        <div class="streak-card"><div class="streak-num" id="streakTotal">0</div><div class="streak-label">Total Entries</div></div>
+        <div class="streak-card"><div class="streak-num" id="streakBest">0</div><div class="streak-label">Best Streak</div></div>
+      </div>
+
+      <div class="mood-strip">
+        <div class="mood-strip-title">How are you feeling today?</div>
+        <div class="mood-options">
+          <button class="mood-btn" onclick="pickMood(this,'😊 Happy')">😊 Happy</button>
+          <button class="mood-btn" onclick="pickMood(this,'😢 Sad')">😢 Sad</button>
+          <button class="mood-btn" onclick="pickMood(this,'😌 Calm')">😌 Calm</button>
+          <button class="mood-btn" onclick="pickMood(this,'🌟 Excited')">🌟 Excited</button>
+          <button class="mood-btn" onclick="pickMood(this,'😰 Anxious')">😰 Anxious</button>
+          <button class="mood-btn" onclick="pickMood(this,'😴 Tired')">😴 Tired</button>
+          <button class="mood-btn" onclick="pickMood(this,'🙏 Grateful')">🙏 Grateful</button>
+        </div>
+      </div>
+
+      <div class="search-row"><input class="search-input" id="searchInput" placeholder="🔍  Search your entries..." oninput="doSearch()"></div>
+
+      <div class="section-label">My Journals</div>
+      <div class="journals-grid" id="journalsGrid"></div>
+
+      <div class="section-label" id="recentLabel">Recent Entries</div>
+      <div id="entriesList" style="padding-bottom:90px"></div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="view" id="view-calendar">
+      <div class="cal-wrap">
+        <div class="cal-header">
+          <button class="cal-nav" onclick="calShift(-1)">‹</button>
+          <div class="cal-month-title" id="calTitle"></div>
+          <button class="cal-nav" onclick="calShift(1)">›</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div class="section-label" id="calDayLabel"></div>
+      <div id="calEntries" style="padding-bottom:90px"></div>
+    </div>
+
+    <!-- EDITOR -->
+    <div class="view" id="view-editor">
+      <div class="editor-header">
+        <button class="back-btn" onclick="confirmBack()">← Back</button>
+        <span style="font-family:'Dancing Script',cursive;font-size:20px;color:var(--text-mid)" id="editorLabel">New Entry</span>
+      </div>
+      <div class="editor-wrap">
+        <div class="editor-meta">
+          <select class="meta-select" id="entryJournal"><option value="">📖 Select journal...</option></select>
+          <select class="meta-select" id="entryMood">
+            <option value="">Mood...</option><option>😊 Happy</option><option>😢 Sad</option><option>😌 Calm</option>
+            <option>🌟 Excited</option><option>😰 Anxious</option><option>😴 Tired</option><option>🙏 Grateful</option>
+          </select>
+          <input type="date" class="meta-date-input" id="entryDateInput">
+          <button class="save-btn" onclick="saveEntry()">Save 🌸</button>
+        </div>
+        <input class="entry-title-input" id="entryTitle" placeholder="Entry title...">
+        <div class="editor-toolbar">
+          <div class="tb-group">
+            <select class="tb-select" id="fontSel" onchange="applyFont(this.value)">
+              <option value="'Lato',sans-serif">Lato</option>
+              <option value="'Playfair Display',serif">Playfair</option>
+              <option value="'Dancing Script',cursive">Dancing Script</option>
+              <option value="'Merriweather',serif">Merriweather</option>
+              <option value="'Caveat',cursive">Caveat</option>
+            </select>
+            <select class="tb-select" id="sizeSel" onchange="applySize(this.value)">
+              <option value="13px">Small</option><option value="15px" selected>Normal</option><option value="18px">Large</option><option value="22px">XL</option>
+            </select>
+          </div>
+          <div class="tb-group">
+            <button class="tb-btn" onclick="fmt('bold')"><b>B</b></button>
+            <button class="tb-btn" onclick="fmt('italic')"><i>I</i></button>
+            <button class="tb-btn" onclick="fmt('underline')"><u>U</u></button>
+          </div>
+          <div class="tb-group">
+            <button class="tb-btn" onclick="fmt('justifyLeft')">⬅</button>
+            <button class="tb-btn" onclick="fmt('justifyCenter')">↔</button>
+            <button class="tb-btn" onclick="fmt('justifyRight')">➡</button>
+          </div>
+          <div class="tb-group">
+            <select class="tb-select" id="pageBgSel" onchange="applyPageBg(this.value)">
+              <option value="bg-white">White</option><option value="bg-pink">Blush pink</option><option value="bg-lav">Lavender</option>
+              <option value="bg-cream">Cream</option><option value="bg-mint">Mint</option><option value="bg-ruled">Ruled</option><option value="bg-dotted">Dotted</option>
+            </select>
+          </div>
+          <div class="tb-group">
+            <button class="tb-btn" onclick="insertText('🌸')">🌸</button>
+            <button class="tb-btn" onclick="insertText('✨')">✨</button>
+            <button class="tb-btn" onclick="insertText('🦋')">🦋</button>
+            <button class="tb-btn" onclick="insertText('💖')">💖</button>
+            <button class="tb-btn" onclick="insertText('🌙')">🌙</button>
+          </div>
+        </div>
+        <div class="editor-page bg-white" id="editorPage" contenteditable="true" data-placeholder="Pour your heart out here..."></div>
+        <div class="photo-attach-row">
+          <label class="tb-btn" style="cursor:pointer;border:1px dashed var(--pink-200)">📷 Add photo<input type="file" accept="image/*" multiple style="display:none" onchange="handleEntryPhotos(this)"></label>
+          <div id="photoThumbs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+      <div style="height:90px"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings">
+      <div style="font-family:'Playfair Display',serif;font-size:26px;color:var(--text-dark);margin:16px 0 20px">Settings</div>
+      <div class="settings-card">
+        <div class="settings-card-title">👤 Account</div>
+        <div class="settings-row"><span class="settings-label" id="accountEmail">—</span></div>
+        <div class="settings-row"><span class="settings-label">Sign out</span><button class="settings-action-btn" onclick="doSignOut()">Sign Out</button></div>
+      </div>
+      <div class="settings-card">
+        <div class="settings-card-title">📖 Journals</div>
+        <div id="settingsJournalList"></div>
+        <div style="margin-top:12px"><button class="settings-action-btn" onclick="openJournalModal()">+ New journal</button></div>
+      </div>
+      <div class="settings-card">
+        <div class="settings-card-title">📊 Stats</div>
+        <div class="settings-row"><span class="settings-label">Total entries</span><span style="font-size:14px;color:var(--text-light)" id="statsEntries">0</span></div>
+        <div class="settings-row"><span class="settings-label">Total journals</span><span style="font-size:14px;color:var(--text-light)" id="statsJournals">0</span></div>
+        <div class="settings-row"><span class="settings-label">Current streak</span><span style="font-size:14px;color:var(--text-light)" id="statsStreak">0 days</span></div>
+      </div>
+      <div style="height:90px"></div>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <button class="nav-item active" id="nav-home" onclick="showView('home')"><span class="nav-icon">🏡</span>Home</button>
+    <button class="nav-item" id="nav-calendar" onclick="showView('calendar')"><span class="nav-icon">📅</span>Calendar</button>
+    <button class="nav-item" id="nav-editor" onclick="openNewEntry()"><span class="nav-icon">✏️</span>Write</button>
+    <button class="nav-item" id="nav-settings" onclick="showView('settings')"><span class="nav-icon">⚙️</span>Settings</button>
+  </div>
+</div>
+
+<!-- JOURNAL MODAL -->
+<div class="modal-bg" id="journalModal">
+  <div class="modal">
+    <h2>✨ Create New Journal</h2>
+    <div class="form-group"><label class="form-label">Journal Name</label><input class="form-input" id="jName" placeholder="e.g. Personal Journal, Study Journal..."></div>
+    <div class="form-group">
+      <label class="form-label">Cover Emoji</label>
+      <div class="cover-emojis" id="coverEmojiGrid">
+        <div class="cover-emoji-opt sel" onclick="selEmoji(this,'📖')">📖</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'🌸')">🌸</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'💜')">💜</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'🌙')">🌙</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'⭐')">⭐</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'🦋')">🦋</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'🌹')">🌹</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'📚')">📚</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'🎀')">🎀</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'💫')">💫</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'🍀')">🍀</div>
+        <div class="cover-emoji-opt" onclick="selEmoji(this,'🌺')">🌺</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cover Image from Gallery (optional)</label>
+      <input type="file" accept="image/*" id="coverFileInput" onchange="handleCoverFile(this)" style="font-size:13px;padding:6px 10px;border:1px solid var(--pink-100);border-radius:10px;width:100%;background:var(--white)">
+      <img id="coverThumb" alt="cover preview">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cover Color</label>
+      <div class="color-palette">
+        <div class="color-swatch sel" style="background:#fce4ec" onclick="selColor(this,'#fce4ec')"></div>
+        <div class="color-swatch" style="background:#ede7f6" onclick="selColor(this,'#ede7f6')"></div>
+        <div class="color-swatch" style="background:#e8f5e9" onclick="selColor(this,'#e8f5e9')"></div>
+        <div class="color-swatch" style="background:#fff9c4" onclick="selColor(this,'#fff9c4')"></div>
+        <div class="color-swatch" style="background:#e3f2fd" onclick="selColor(this,'#e3f2fd')"></div>
+        <div class="color-swatch" style="background:#fbe9e7" onclick="selColor(this,'#fbe9e7')"></div>
+        <div class="color-swatch" style="background:#f3e5f5" onclick="selColor(this,'#f3e5f5')"></div>
+        <div class="color-swatch" style="background:#e0f7fa" onclick="selColor(this,'#e0f7fa')"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('journalModal')">Cancel</button>
+      <button class="btn-primary" onclick="createJournal()">Create Journal 🌸</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW ENTRY MODAL -->
+<div class="modal-bg" id="entryViewModal">
+  <div class="modal" style="width:min(96vw,640px)">
+    <div class="view-entry-header">
+      <div>
+        <div class="view-entry-date" id="veDate"></div>
+        <div class="view-entry-title" id="veTitle"></div>
+        <div class="view-entry-tags">
+          <span id="veMood" style="font-size:12px;padding:3px 12px;border-radius:12px;background:var(--pink-100);color:var(--pink-600)"></span>
+          <span id="veJournal" style="font-size:12px;color:var(--lav-600)"></span>
+        </div>
+      </div>
+      <div class="view-entry-actions">
+        <button class="icon-btn" onclick="editOpenEntry()" title="Edit">✏️</button>
+        <button class="icon-btn" onclick="deleteOpenEntry()" title="Delete">🗑️</button>
+        <button class="icon-btn" onclick="closeModal('entryViewModal')" title="Close">✕</button>
+      </div>
+    </div>
+    <div class="view-entry-body" id="veBody"></div>
+    <div class="view-entry-photos" id="vePhotos"></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   SUPABASE CONFIG — replace these two values (see README)
+   ========================================================= */
+const SUPABASE_URL = 'https://hrldtetblsdeodshdftu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_ljCEbKTeYtfqhaqLJVQ2YQ_00YsG8fs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let CURRENT_USER = null;
+let S = { journals: [], entries: [], todayMood: '' };
+
+// ==================== PETALS ====================
+(function() {
+  const pc = document.getElementById('petalsContainer');
+  const emojis = ['🌸','🌷','🌺','🍀','✨','🌸','🌸','💮'];
+  for (let i = 0; i < 18; i++) {
+    const d = document.createElement('div');
+    d.className = 'petal';
+    d.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    d.style.cssText = `left:${Math.random()*100}vw;font-size:${10+Math.random()*20}px;animation-duration:${10+Math.random()*18}s;animation-delay:${Math.random()*25}s`;
+    pc.appendChild(d);
+  }
+})();
+
+// ==================== AUTH ====================
+let authMode = 'login';
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('authSubmitBtn').textContent = mode==='login' ? 'Log In 🌸' : 'Sign Up 🌸';
+  document.getElementById('authMsg').textContent = '';
+}
+async function handleAuthSubmit() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const msg = document.getElementById('authMsg');
+  const btn = document.getElementById('authSubmitBtn');
+  if (!email || !password) { msg.textContent='Please fill in both fields'; msg.className='auth-msg error'; return; }
+  if (password.length < 6) { msg.textContent='Password must be at least 6 characters'; msg.className='auth-msg error'; return; }
+  btn.disabled = true; msg.textContent='Please wait...'; msg.className='auth-msg';
+  try {
+    if (authMode === 'signup') {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if (error) throw error;
+      if (data.user && !data.session) {
+        msg.textContent='Check your email to confirm your account 💌'; msg.className='auth-msg success';
+      } else {
+        await onLoggedIn(data.user);
+      }
+    } else {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      await onLoggedIn(data.user);
+    }
+  } catch (err) {
+    msg.textContent = err.message || 'Something went wrong'; msg.className='auth-msg error';
+  } finally {
+    btn.disabled = false;
+  }
+}
+async function doSignOut() {
+  await sb.auth.signOut();
+  CURRENT_USER = null;
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('authEmail').value=''; document.getElementById('authPassword').value='';
+}
+async function onLoggedIn(user) {
+  CURRENT_USER = user;
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('accountEmail').textContent = user.email;
+  await loadAllData();
+  bootApp();
+}
+// auto-login if session exists
+(async function checkSession(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session && session.user) await onLoggedIn(session.user);
+})();
+
+// ==================== DATA SYNC (Supabase) ====================
+function setSyncing(isSyncing) {
+  document.getElementById('syncDot').classList.toggle('syncing', isSyncing);
+  document.getElementById('syncText').textContent = isSyncing ? 'Saving...' : 'Synced';
+}
+async function loadAllData() {
+  setSyncing(true);
+  const [{data:journals}, {data:entries}, {data:prefs}] = await Promise.all([
+    sb.from('journals').select('*').eq('user_id', CURRENT_USER.id).order('created_at'),
+    sb.from('entries').select('*').eq('user_id', CURRENT_USER.id).order('entry_date', {ascending:false}),
+    sb.from('preferences').select('*').eq('user_id', CURRENT_USER.id).maybeSingle()
+  ]);
+  S.journals = (journals||[]).map(j=>({id:j.id,name:j.name,emoji:j.emoji,color:j.color,coverImage:j.cover_image}));
+  S.entries = (entries||[]).map(e=>({id:e.id,title:e.title,content:e.content,journalId:e.journal_id,mood:e.mood,date:new Date(e.entry_date).getTime(),photos:e.photos||[]}));
+  S.todayMood = (prefs && prefs.today_mood_date === todayStr()) ? prefs.today_mood : '';
+  S.reminderDismissed = prefs ? prefs.reminder_dismissed_date === todayStr() : false;
+  setSyncing(false);
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+async function dbCreateJournal(j) {
+  setSyncing(true);
+  const { data, error } = await sb.from('journals').insert({
+    user_id: CURRENT_USER.id, name: j.name, emoji: j.emoji, color: j.color, cover_image: j.coverImage
+  }).select().single();
+  setSyncing(false);
+  if (error) { alert('Could not save journal: '+error.message); return null; }
+  return data.id;
+}
+async function dbDeleteJournal(id) {
+  setSyncing(true);
+  await sb.from('entries').delete().eq('journal_id', id);
+  await sb.from('journals').delete().eq('id', id);
+  setSyncing(false);
+}
+async function dbSaveEntry(e, isNew) {
+  setSyncing(true);
+  const payload = {
+    user_id: CURRENT_USER.id, title: e.title, content: e.content,
+    journal_id: e.journalId || null, mood: e.mood,
+    entry_date: new Date(e.date).toISOString(), photos: e.photos || []
+  };
+  let result;
+  if (isNew) result = await sb.from('entries').insert(payload).select().single();
+  else result = await sb.from('entries').update(payload).eq('id', e.id).select().single();
+  setSyncing(false);
+  if (result.error) { alert('Could not save entry: '+result.error.message); return null; }
+  return result.data.id;
+}
+async function dbDeleteEntry(id) {
+  setSyncing(true);
+  await sb.from('entries').delete().eq('id', id);
+  setSyncing(false);
+}
+async function dbSaveMood(mood) {
+  await sb.from('preferences').upsert({ user_id: CURRENT_USER.id, today_mood: mood, today_mood_date: todayStr() }, {onConflict:'user_id'});
+}
+async function dbDismissReminder() {
+  await sb.from('preferences').upsert({ user_id: CURRENT_USER.id, reminder_dismissed_date: todayStr() }, {onConflict:'user_id'});
+}
+
+// ==================== BOOT ====================
+function bootApp() {
+  const now = new Date();
+  const h = now.getHours();
+  document.getElementById('homeGreeting').textContent = h<12?'Good morning ☀️':h<17?'Good afternoon 🌸':'Good evening 🌙';
+  document.getElementById('homeDate').textContent = now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).toUpperCase();
+  document.getElementById('entryDateInput').value = todayStr();
+  if (S.todayMood) document.querySelectorAll('.mood-btn').forEach(b=>{ if(b.textContent.trim()===S.todayMood) b.classList.add('selected'); });
+
+  // reminder banner: show if no entry today and not dismissed
+  const hasToday = S.entries.some(e => new Date(e.date).toDateString() === now.toDateString());
+  if (!hasToday && !S.reminderDismissed) document.getElementById('reminderBanner').style.display='flex';
+
+  renderStreaks();
+  renderJournals(); renderEntries(); renderCalendar(); updateSettings();
+}
+function dismissReminder(){ document.getElementById('reminderBanner').style.display='none'; dbDismissReminder(); }
+
+// ==================== STREAKS ====================
+function renderStreaks() {
+  const dates = [...new Set(S.entries.map(e=>new Date(e.date).toDateString()))]
+    .map(d=>new Date(d)).sort((a,b)=>b-a);
+  let current=0, best=0, run=0;
+  const today = new Date(); today.setHours(0,0,0,0);
+  let cursor = new Date(today);
+  for (let i=0;i<dates.length;i++) {
+    if (dates[i].toDateString()===cursor.toDateString()) {
+      current++; cursor.setDate(cursor.getDate()-1);
+    } else if (i===0 && dates[i].toDateString()===new Date(cursor.getTime()+86400000).toDateString()) {
+      // entry was yesterday but not today -> streak still 0 for "current" but continue checking
+      break;
+    } else break;
+  }
+  // best streak calc
+  let prev=null;
+  dates.slice().reverse().forEach(d=>{
+    if (prev && (d-prev)/86400000===1) run++; else run=1;
+    if (run>best) best=run;
+    prev=d;
+  });
+  document.getElementById('streakCurrent').textContent=current;
+  document.getElementById('streakTotal').textContent=S.entries.length;
+  document.getElementById('streakBest').textContent=best;
+  document.getElementById('statsStreak').textContent=current+' days';
+}
+
+// ==================== VIEWS ====================
+function showView(v) {
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  const ni = document.getElementById('nav-'+v); if (ni) ni.classList.add('active');
+  if (v==='calendar') renderCalendar();
+  if (v==='settings') updateSettings();
+}
+
+// ==================== MOOD ====================
+function pickMood(btn, mood) {
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  S.todayMood = mood; dbSaveMood(mood);
+}
+
+// ==================== SEARCH ====================
+function doSearch() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  document.getElementById('recentLabel').textContent = q ? 'Search Results' : 'Recent Entries';
+  if (!q) { renderEntries(); return; }
+  const res = S.entries.filter(e => (e.title||'').toLowerCase().includes(q) || (e.content||'').replace(/<[^>]+>/g,' ').toLowerCase().includes(q));
+  drawEntries(res, document.getElementById('entriesList'));
+}
+
+// ==================== JOURNALS ====================
+let _jEmoji='📖', _jColor='#fce4ec', _jImg=null;
+function renderJournals() {
+  const g = document.getElementById('journalsGrid');
+  let h = '';
+  S.journals.forEach(j=>{
+    const cnt = S.entries.filter(e=>e.journalId===j.id).length;
+    let coverInner = j.coverImage
+      ? `<img class="journal-cover-img" src="${j.coverImage}"><div class="journal-cover-overlay"><span style="font-size:34px">${j.emoji||'📖'}</span></div>`
+      : `<span class="journal-cover-emoji">${j.emoji||'📖'}</span>`;
+    h += `<div class="journal-card" onclick="filterByJournal('${j.id}')">
+      <div class="journal-cover" style="background:${j.color||'#fce4ec'}">${coverInner}</div>
+      <div class="journal-info"><div class="journal-name">${escHtml(j.name)}</div><div class="journal-meta">${cnt} ${cnt===1?'entry':'entries'}</div></div>
+    </div>`;
+  });
+  h += `<div class="add-journal-card" onclick="openJournalModal()"><span class="add-icon">＋</span><p>New Journal</p></div>`;
+  g.innerHTML = h;
+  const sel = document.getElementById('entryJournal');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">📖 Select journal...</option>';
+  S.journals.forEach(j=>{ sel.innerHTML+=`<option value="${j.id}">${j.emoji||'📖'} ${escHtml(j.name)}</option>`; });
+  if (cur) sel.value = cur;
+}
+function filterByJournal(id) {
+  const j = S.journals.find(x=>x.id===id); if (!j) return;
+  document.getElementById('searchInput').value='';
+  document.getElementById('recentLabel').textContent = `${j.emoji||'📖'} ${j.name}`;
+  drawEntries(S.entries.filter(e=>e.journalId===id).sort((a,b)=>b.date-a.date), document.getElementById('entriesList'));
+  showView('home');
+}
+function openJournalModal() {
+  _jEmoji='📖'; _jColor='#fce4ec'; _jImg=null;
+  document.getElementById('jName').value='';
+  document.getElementById('coverThumb').style.display='none';
+  document.getElementById('coverFileInput').value='';
+  document.querySelectorAll('.cover-emoji-opt').forEach((el,i)=>el.classList.toggle('sel',i===0));
+  document.querySelectorAll('.color-swatch').forEach((el,i)=>el.classList.toggle('sel',i===0));
+  document.getElementById('journalModal').classList.add('open');
+}
+function selEmoji(el, emoji){ document.querySelectorAll('.cover-emoji-opt').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); _jEmoji=emoji; }
+function selColor(el, color){ document.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); _jColor=color; }
+function handleCoverFile(inp) {
+  const f=inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{_jImg=ev.target.result;const t=document.getElementById('coverThumb');t.src=ev.target.result;t.style.display='inline-block';};
+  r.readAsDataURL(f);
+}
+async function createJournal() {
+  const name=document.getElementById('jName').value.trim();
+  if(!name){alert('Please give your journal a name 🌸');return;}
+  const newId = await dbCreateJournal({name,emoji:_jEmoji,color:_jColor,coverImage:_jImg});
+  if (!newId) return;
+  S.journals.push({id:newId,name,emoji:_jEmoji,color:_jColor,coverImage:_jImg});
+  renderJournals(); updateSettings();
+  closeModal('journalModal');
+}
+
+// ==================== ENTRIES ====================
+function renderEntries(){ drawEntries([...S.entries].sort((a,b)=>b.date-a.date).slice(0,40), document.getElementById('entriesList')); }
+function drawEntries(list, el) {
+  if (!list.length) { el.innerHTML=`<div class="empty-state"><div class="big-emoji">🌸</div><p>No entries yet — start writing your thoughts!</p></div>`; return; }
+  el.innerHTML = list.map(e=>{
+    const d=new Date(e.date);
+    const j=S.journals.find(x=>x.id===e.journalId);
+    const preview=(e.content||'').replace(/<[^>]+>/g,' ').substring(0,130);
+    const photo = (e.photos&&e.photos.length) ? `<img class="entry-photo-thumb" src="${e.photos[0]}">` : '';
+    return `<div class="entry-card" onclick="openEntry('${e.id}')">
+      <div class="entry-date-row"><span class="entry-date">${d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</span>${e.mood?`<span class="entry-mood-tag">${e.mood}</span>`:''}</div>
+      <div class="entry-title">${escHtml(e.title||'Untitled Entry')}</div>
+      <div class="entry-preview">${escHtml(preview)}</div>${photo}
+      ${j?`<div class="entry-journal-tag">${j.emoji||'📖'} ${escHtml(j.name)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ==================== VIEW ENTRY ====================
+let _openId = null;
+function openEntry(id) {
+  const e=S.entries.find(x=>x.id===id); if(!e) return;
+  _openId=id;
+  const j=S.journals.find(x=>x.id===e.journalId);
+  const d=new Date(e.date);
+  document.getElementById('veDate').textContent=d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('veTitle').textContent=e.title||'Untitled Entry';
+  document.getElementById('veMood').textContent=e.mood||'';
+  document.getElementById('veJournal').textContent=j?`${j.emoji||'📖'} ${j.name}`:'';
+  document.getElementById('veBody').innerHTML=e.content||'';
+  document.getElementById('vePhotos').innerHTML=(e.photos||[]).map(p=>`<img src="${p}">`).join('');
+  document.getElementById('entryViewModal').classList.add('open');
+}
+function editOpenEntry() {
+  const e=S.entries.find(x=>x.id===_openId); if(!e) return;
+  closeModal('entryViewModal');
+  document.getElementById('entryTitle').value=e.title||'';
+  document.getElementById('editorPage').innerHTML=e.content||'';
+  document.getElementById('entryJournal').value=e.journalId||'';
+  document.getElementById('entryMood').value=e.mood||'';
+  document.getElementById('entryDateInput').value=new Date(e.date).toISOString().slice(0,10);
+  document.getElementById('editorLabel').textContent='Edit Entry';
+  _editPhotos = (e.photos||[]).slice();
+  renderPhotoThumbs();
+  showView('editor');
+}
+async function deleteOpenEntry() {
+  if (!confirm('Delete this entry? This cannot be undone.')) return;
+  await dbDeleteEntry(_openId);
+  S.entries=S.entries.filter(x=>x.id!==_openId);
+  renderEntries(); renderJournals(); renderCalendar(); renderStreaks();
+  closeModal('entryViewModal'); _openId=null;
+}
+
+// ==================== EDITOR ====================
+let _editPhotos = [];
+function openNewEntry() {
+  _openId=null; _editPhotos=[];
+  document.getElementById('entryTitle').value='';
+  document.getElementById('editorPage').innerHTML='';
+  document.getElementById('entryJournal').value='';
+  document.getElementById('entryMood').value='';
+  document.getElementById('entryDateInput').value=todayStr();
+  document.getElementById('editorPage').className='editor-page bg-white';
+  document.getElementById('editorLabel').textContent='New Entry';
+  document.getElementById('pageBgSel').value='bg-white';
+  document.getElementById('fontSel').value="'Lato',sans-serif";
+  document.getElementById('sizeSel').value='15px';
+  applyFont("'Lato',sans-serif"); applySize('15px');
+  renderPhotoThumbs();
+  showView('editor');
+}
+function confirmBack() {
+  const content=document.getElementById('editorPage').innerHTML.replace(/<[^>]+>/g,'').trim();
+  if (content && !confirm('Go back? Unsaved changes will be lost.')) return;
+  showView('home');
+}
+async function saveEntry() {
+  const title=document.getElementById('entryTitle').value.trim();
+  const content=document.getElementById('editorPage').innerHTML;
+  const plain=content.replace(/<[^>]+>/g,'').trim();
+  if (!plain && !title) { alert('Write something first! 🌸'); return; }
+  const jId=document.getElementById('entryJournal').value;
+  const mood=document.getElementById('entryMood').value;
+  const dateVal = document.getElementById('entryDateInput').value;
+  const ts = dateVal ? new Date(dateVal+'T12:00:00').getTime() : Date.now();
+
+  if (_openId) {
+    const e=S.entries.find(x=>x.id===_openId);
+    const updated = {...e, title, content, journalId:jId, mood, date:ts, photos:_editPhotos};
+    const id = await dbSaveEntry(updated, false);
+    if (!id) return;
+    Object.assign(e, updated);
+  } else {
+    const newEntry = {title, content, journalId:jId, mood, date:ts, photos:_editPhotos};
+    const id = await dbSaveEntry(newEntry, true);
+    if (!id) return;
+    newEntry.id = id;
+    S.entries.push(newEntry);
+  }
+  renderEntries(); renderJournals(); renderCalendar(); renderStreaks();
+  document.getElementById('reminderBanner').style.display='none';
+  showView('home');
+}
+function fmt(cmd){document.execCommand(cmd,false,null);document.getElementById('editorPage').focus();}
+function applyFont(f){document.getElementById('editorPage').style.fontFamily=f;}
+function applySize(s){document.getElementById('editorPage').style.fontSize=s;}
+function insertText(t){document.getElementById('editorPage').focus();document.execCommand('insertText',false,t);}
+function applyPageBg(cls){document.getElementById('editorPage').className='editor-page '+cls;}
+
+function handleEntryPhotos(inp) {
+  const files = Array.from(inp.files);
+  files.forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>{ _editPhotos.push(ev.target.result); renderPhotoThumbs(); };
+    r.readAsDataURL(f);
+  });
+}
+function renderPhotoThumbs() {
+  document.getElementById('photoThumbs').innerHTML = _editPhotos.map((p,i)=>
+    `<div class="photo-thumb-wrap"><img src="${p}"><button class="photo-remove" onclick="removePhoto(${i})">✕</button></div>`
+  ).join('');
+}
+function removePhoto(i){ _editPhotos.splice(i,1); renderPhotoThumbs(); }
+
+// ==================== CALENDAR ====================
+let calCur = new Date();
+function renderCalendar() {
+  const y=calCur.getFullYear(), m=calCur.getMonth();
+  const today=new Date();
+  document.getElementById('calTitle').textContent=calCur.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let h=days.map(d=>`<div class="cal-day-label">${d}</div>`).join('');
+  const firstDay=new Date(y,m,1).getDay();
+  for(let i=0;i<firstDay;i++) h+=`<div class="cal-day other-month"></div>`;
+  const last=new Date(y,m+1,0).getDate();
+  for(let d=1;d<=last;d++){
+    const dt=new Date(y,m,d);
+    const isTd=dt.toDateString()===today.toDateString();
+    const hasE=S.entries.some(e=>{const ed=new Date(e.date);return ed.getFullYear()===y&&ed.getMonth()===m&&ed.getDate()===d;});
+    h+=`<div class="cal-day${isTd?' today':''}${hasE?' has-entry':''}" onclick="calClick(${y},${m},${d})">${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML=h;
+  document.getElementById('calEntries').innerHTML='';
+  document.getElementById('calDayLabel').textContent='';
+}
+function calShift(dir){calCur=new Date(calCur.getFullYear(),calCur.getMonth()+dir,1);renderCalendar();}
+function calClick(y,m,d){
+  document.querySelectorAll('.cal-day').forEach(el=>el.classList.remove('selected'));
+  event.target.classList.add('selected');
+  const el=document.getElementById('calEntries');
+  const lbl=document.getElementById('calDayLabel');
+  const dt=new Date(y,m,d);
+  lbl.textContent=dt.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}).toUpperCase();
+  const entries=S.entries.filter(e=>{const ed=new Date(e.date);return ed.getFullYear()===y&&ed.getMonth()===m&&ed.getDate()===d;});
+  if(!entries.length){el.innerHTML=`<div class="empty-state" style="padding:24px 0"><div class="big-emoji" style="font-size:36px">📅</div><p>No entries on this day</p></div>`;return;}
+  drawEntries(entries,el);
+}
+
+// ==================== SETTINGS ====================
+function updateSettings(){
+  document.getElementById('statsEntries').textContent=S.entries.length;
+  document.getElementById('statsJournals').textContent=S.journals.length;
+  const el=document.getElementById('settingsJournalList');
+  if(!S.journals.length){el.innerHTML=`<div style="font-size:13px;color:var(--text-light);padding:6px 0">No journals yet</div>`;return;}
+  el.innerHTML=S.journals.map(j=>`<div class="settings-row"><span class="settings-label">${j.emoji||'📖'} ${escHtml(j.name)}</span><button class="settings-action-btn danger" onclick="deleteJournal('${j.id}')">Delete</button></div>`).join('');
+}
+async function deleteJournal(id){
+  const j=S.journals.find(x=>x.id===id);
+  if(!confirm(`Delete "${j?j.name:'this journal'}" and all its entries?`)) return;
+  await dbDeleteJournal(id);
+  S.journals=S.journals.filter(x=>x.id!==id);
+  S.entries=S.entries.filter(x=>x.journalId!==id);
+  renderJournals(); renderEntries(); renderCalendar(); updateSettings(); renderStreaks();
+}
+
+// ==================== HELPERS ====================
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+</script>
+</body>
+</html>
