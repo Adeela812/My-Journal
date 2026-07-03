@@ -526,15 +526,17 @@ function setSyncing(isSyncing) {
   document.getElementById('syncDot').classList.toggle('syncing', isSyncing);
   document.getElementById('syncText').textContent = isSyncing ? 'Saving...' : 'Synced';
 }
-async function loadAllData() {
-  setSyncing(true);
-  const [{data:journals}, {data:entries}, {data:prefs}] = await Promise.all([
-    sb.from('journals').select('*').eq('user_id', CURRENT_USER.id).order('created_at'),
-    sb.from('entries').select('*').eq('user_id', CURRENT_USER.id).order('entry_date', {ascending:false}),
-    sb.from('preferences').select('*').eq('user_id', CURRENT_USER.id).maybeSingle()
-  ]);
-  S.journals = (journals||[]).map(j=>({id:j.id,name:j.name,emoji:j.emoji,color:j.color,coverImage:j.cover_image}));
-  S.entries = (entries||[]).map(e=>({id:e.id,title:e.title,content:e.content,journalId:e.journal_id,mood:e.mood,date:new Date(e.entry_date).getTime(),photos:e.photos||[]}));
+S.entries = (entries || []).map(e => ({
+  id: e.id,
+  title: e.title,
+  content: e.content,
+  journalId: e.journal_id,
+  mood: e.mood,
+  date: new Date(e.entry_date).getTime(),
+  photos: e.photos || [],
+  fontFamily: e.font_family || "'Lato',sans-serif",
+  fontSize: e.font_size || "15px"
+}));
   S.todayMood = (prefs && prefs.today_mood_date === todayStr()) ? prefs.today_mood : '';
   S.reminderDismissed = prefs ? prefs.reminder_dismissed_date === todayStr() : false;
   setSyncing(false);
@@ -556,13 +558,17 @@ async function dbDeleteJournal(id) {
   await sb.from('journals').delete().eq('id', id);
   setSyncing(false);
 }
-async function dbSaveEntry(e, isNew) {
-  setSyncing(true);
-  const payload = {
-    user_id: CURRENT_USER.id, title: e.title, content: e.content,
-    journal_id: e.journalId || null, mood: e.mood,
-    entry_date: new Date(e.date).toISOString(), photos: e.photos || []
-  };
+const payload = {
+  user_id: CURRENT_USER.id,
+  title: e.title,
+  content: e.content,
+  journal_id: e.journalId || null,
+  mood: e.mood,
+  entry_date: new Date(e.date).toISOString(),
+  photos: e.photos || [],
+  font_family: e.fontFamily || "'Lato',sans-serif",
+  font_size: e.fontSize || '15px'
+};
   let result;
   if (isNew) result = await sb.from('entries').insert(payload).select().single();
   else result = await sb.from('entries').update(payload).eq('id', e.id).select().single();
@@ -749,6 +755,10 @@ function editOpenEntry() {
   closeModal('entryViewModal');
   document.getElementById('entryTitle').value=e.title||'';
   document.getElementById('editorPage').innerHTML=e.content||'';
+  document.getElementById('fontSel').value = e.fontFamily || "'Lato',sans-serif";
+  document.getElementById('sizeSel').value = e.fontSize || "15px";
+  applyFont(e.fontFamily || "'Lato',sans-serif");
+  applySize(e.fontSize || "15px");
   document.getElementById('entryJournal').value=e.journalId||'';
   document.getElementById('entryMood').value=e.mood||'';
   document.getElementById('entryDateInput').value=new Date(e.date).toISOString().slice(0,10);
@@ -797,15 +807,35 @@ async function saveEntry() {
   const mood=document.getElementById('entryMood').value;
   const dateVal = document.getElementById('entryDateInput').value;
   const ts = dateVal ? new Date(dateVal+'T12:00:00').getTime() : Date.now();
-
+  const fontFamily = document.getElementById('fontSel').value;
+  const fontSize = document.getElementById('sizeSel').value;
   if (_openId) {
     const e=S.entries.find(x=>x.id===_openId);
-    const updated = {...e, title, content, journalId:jId, mood, date:ts, photos:_editPhotos};
+const updated = {
+  ...e,
+  title,
+  content,
+  journalId: jId,
+  mood,
+  date: ts,
+  photos: _editPhotos,
+  fontFamily,
+  fontSize
+};
     const id = await dbSaveEntry(updated, false);
     if (!id) return;
     Object.assign(e, updated);
   } else {
-    const newEntry = {title, content, journalId:jId, mood, date:ts, photos:_editPhotos};
+const newEntry = {
+  title,
+  content,
+  journalId: jId,
+  mood,
+  date: ts,
+  photos: _editPhotos,
+  fontFamily,
+  fontSize
+};
     const id = await dbSaveEntry(newEntry, true);
     if (!id) return;
     newEntry.id = id;
