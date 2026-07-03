@@ -756,7 +756,10 @@ function openEntry(id) {
   document.getElementById('veTitle').textContent=e.title||'Untitled Entry';
   document.getElementById('veMood').textContent=e.mood||'';
   document.getElementById('veJournal').textContent=j?`${j.emoji||'📖'} ${j.name}`:'';
-  document.getElementById('veBody').innerHTML=e.content||'';
+  const veBody = document.getElementById('veBody');
+  veBody.innerHTML = e.content || '';
+  veBody.style.fontFamily = e.fontFamily || "'Lato',sans-serif";
+  veBody.style.fontSize = e.fontSize || '15px';
   document.getElementById('vePhotos').innerHTML=(e.photos||[]).map(p=>`<img src="${p}">`).join('');
   document.getElementById('entryViewModal').classList.add('open');
 }
