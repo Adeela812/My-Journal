@@ -526,6 +526,14 @@ function setSyncing(isSyncing) {
   document.getElementById('syncDot').classList.toggle('syncing', isSyncing);
   document.getElementById('syncText').textContent = isSyncing ? 'Saving...' : 'Synced';
 }
+async function loadAllData() {
+  setSyncing(true);
+  const [{data:journals}, {data:entries}, {data:prefs}] = await Promise.all([
+    sb.from('journals').select('*').eq('user_id', CURRENT_USER.id).order('created_at'),
+    sb.from('entries').select('*').eq('user_id', CURRENT_USER.id).order('entry_date', {ascending:false}),
+    sb.from('preferences').select('*').eq('user_id', CURRENT_USER.id).maybeSingle()
+  ]);
+  S.journals = (journals||[]).map(j=>({id:j.id,name:j.name,emoji:j.emoji,color:j.color,coverImage:j.cover_image}));
 S.entries = (entries || []).map(e => ({
   id: e.id,
   title: e.title,
@@ -558,7 +566,9 @@ async function dbDeleteJournal(id) {
   await sb.from('journals').delete().eq('id', id);
   setSyncing(false);
 }
-const payload = {
+async function dbSaveEntry(e, isNew) {
+  setSyncing(true);
+  const payload = {
   user_id: CURRENT_USER.id,
   title: e.title,
   content: e.content,
@@ -811,6 +821,7 @@ async function saveEntry() {
   const fontSize = document.getElementById('sizeSel').value;
   if (_openId) {
     const e=S.entries.find(x=>x.id===_openId);
+
 const updated = {
   ...e,
   title,
@@ -826,6 +837,9 @@ const updated = {
     if (!id) return;
     Object.assign(e, updated);
   } else {
+    const fontFamily = document.getElementById('fontSel').value;
+const fontSize = document.getElementById('sizeSel').value;
+
 const newEntry = {
   title,
   content,
